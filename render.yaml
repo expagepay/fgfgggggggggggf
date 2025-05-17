@@ -1,15 +1,23 @@
 services:
   - type: web
     name: media-downloader-api
-    env: python
-    plan: free # Ou o plano que desejar (free tem limitações)
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --timeout 120" # Timeout maior para downloads demorados
-    healthCheckPath: / # Render pode precisar de um health check. Adicione uma rota simples '/' se necessário.
+    runtime: docker # MUDANÇA IMPORTANTE
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free # Ou o plano que desejar
+    # healthCheckPath: / # Já temos a rota '/' no app.py
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10 # Ou a versão Python que você prefere e é suportada
-      # - key: INSTAGRAM_USERNAME # Se você fosse usar login no Instagram
-      #   sync: false             # Para não mostrar no dashboard do Render
-      # - key: INSTAGRAM_PASSWORD
-      #   sync: false
+      - key: PYTHON_VERSION # Informativo, já que o Dockerfile controla
+        value: "3.11"
+      - key: PORT # O Render define isso automaticamente, mas é bom estar ciente
+        value: "8080" # O Gunicorn no startCommand vai usar isso ou o $PORT do Render
+      - key: YOUTUBE_COOKIES_FILE_CONTENT # VARIÁVEL SECRETA PARA COOKIES
+        sync: false # NÃO mostrar no dashboard ou logs
+        # O valor será o CONTEÚDO do seu arquivo de cookies do YouTube
+    # O buildCommand não é necessário aqui, pois o Dockerfile cuida da construção.
+    # O startCommand é executado DENTRO do container Docker.
+    startCommand: "gunicorn app:app --bind 0.0.0.0:${PORT:-8080} --timeout 180 --workers 2"
+    # `--bind 0.0.0.0:${PORT:-8080}`: Gunicorn escuta em todas as interfaces, na porta fornecida pelo Render
+    # ou 8080 como fallback (o Render sempre fornecerá PORT).
+    # `--timeout 180`: Aumentado para 3 minutos para downloads mais longos e conversões.
+    # `--workers 2`: Um número razoável para um plano gratuito. Ajuste conforme necessário.
