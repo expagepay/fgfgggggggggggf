@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.git/
+.vscode/
+tmp_downloads/ # Se você criar localmente
+*.log
