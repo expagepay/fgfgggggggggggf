@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: media-downloader-api
+    env: python
+    plan: free # Ou o plano que desejar (free tem limitações)
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --timeout 120" # Timeout maior para downloads demorados
+    healthCheckPath: / # Render pode precisar de um health check. Adicione uma rota simples '/' se necessário.
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10 # Ou a versão Python que você prefere e é suportada
+      # - key: INSTAGRAM_USERNAME # Se você fosse usar login no Instagram
+      #   sync: false             # Para não mostrar no dashboard do Render
+      # - key: INSTAGRAM_PASSWORD
+      #   sync: false
