@@ -1,0 +1,5 @@
+Flask
+gunicorn
+instaloader
+yt-dlp
+requests # yt-dlp pode precisar, e é bom ter
