@@ -119,29 +119,29 @@ def get_instaloader_instance(temp_dir_for_session_management):
     # L já foi inicializado
     # L = instaloader.Instaloader(...)
 
-# Dentro de get_instaloader_instance
-if ig_session_content and ig_username_for_session:
-    session_filepath = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session")
-    try:
-        with open(session_filepath, 'w') as f:
-            f.write(ig_session_content)
-        
-        logger.info(f"Instagram: Tentando carregar sessão para '{ig_username_for_session}' do arquivo '{session_filepath}'.")
-        L.context.username = ig_username_for_session # Definir ANTES de carregar
-        L.context.load_session_from_file(username=ig_username_for_session, filename=session_filepath) # Correto
-
-        if L.context.is_logged_in and L.context.username == ig_username_for_session:
-            logger.info(f"Instagram: Sessão carregada com SUCESSO para '{L.context.username}' a partir de var de ambiente.")
-            return L
-        else:
-            # Se não logou ou o username não bate, a sessão não foi válida.
-            logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente (is_logged_in: {L.context.is_logged_in}, context.username: {L.context.username}, expected_username: {ig_username_for_session}).")
-            # Não retorna L, vai tentar login normal ou anônimo.
-
-    except Exception as e:
-        logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' (Exceção: {type(e).__name__} - {e}). Tentando login normal se configurado.")
-        if os.path.exists(session_filepath): os.remove(session_filepath)
+    # Dentro de get_instaloader_instance
+    if ig_session_content and ig_username_for_session:
+        session_filepath = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session")
+        try:
+            with open(session_filepath, 'w') as f:
+                f.write(ig_session_content)
+            
+            logger.info(f"Instagram: Tentando carregar sessão para '{ig_username_for_session}' do arquivo '{session_filepath}'.")
+            L.context.username = ig_username_for_session # Definir ANTES de carregar
+            L.context.load_session_from_file(username=ig_username_for_session, filename=session_filepath) # Correto
     
+            if L.context.is_logged_in and L.context.username == ig_username_for_session:
+                logger.info(f"Instagram: Sessão carregada com SUCESSO para '{L.context.username}' a partir de var de ambiente.")
+                return L
+            else:
+                # Se não logou ou o username não bate, a sessão não foi válida.
+                logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente (is_logged_in: {L.context.is_logged_in}, context.username: {L.context.username}, expected_username: {ig_username_for_session}).")
+                # Não retorna L, vai tentar login normal ou anônimo.
+    
+        except Exception as e:
+            logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' (Exceção: {type(e).__name__} - {e}). Tentando login normal se configurado.")
+            if os.path.exists(session_filepath): os.remove(session_filepath)
+        
     # Se a carga da sessão falhou ou não foi configurada, prossegue para tentativa de login por user/pass
     # ... (resto da função como estava antes, para login por username/password) ...
 
