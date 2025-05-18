@@ -105,6 +105,7 @@ def get_instaloader_instance(temp_dir_for_session_management):
     ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME')
 
     # Prioridade 1: Carregar sessão
+
     if ig_session_content and ig_username_for_session:
         session_filepath = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session")
         try:
@@ -112,18 +113,20 @@ def get_instaloader_instance(temp_dir_for_session_management):
                 f.write(ig_session_content)
             
             logger.info(f"Instagram: Tentando carregar sessão para '{ig_username_for_session}' do arquivo '{session_filepath}'.")
-            L.context.username = ig_username_for_session
-            L.context.load_session_from_file(username=ig_username_for_session, filename=session_filepath)
-
+            L.context.username = ig_username_for_session # Definir ANTES de carregar
+            
+            # ---- MUDANÇA AQUI ----
+            L.context.load_session_from_file(ig_username_for_session, session_filepath)
+            # ---- FIM DA MUDANÇA ----
+    
             if L.context.is_logged_in and L.context.username == ig_username_for_session:
                 logger.info(f"Instagram: Sessão carregada com SUCESSO para '{L.context.username}' a partir de var de ambiente.")
-                return L # <--- Este é o return que deve funcionar
+                return L
             else:
-                logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente...")
-                # Continua para a próxima tentativa se a sessão não for válida
-
+                logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente (is_logged_in: {L.context.is_logged_in}, context.username: {L.context.username}, expected_username: {ig_username_for_session}).")
+    
         except Exception as e:
-            logger.warning(f"Instagram: Falha ao carregar sessão de ENV... ({e}).")
+            logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' (Exceção: {type(e).__name__} - {e}). Tentando login normal se configurado.")
             if os.path.exists(session_filepath): os.remove(session_filepath)
         # Se chegou aqui, a tentativa de sessão falhou ou não foi válida, então continua.
 
