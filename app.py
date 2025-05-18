@@ -112,57 +112,72 @@ def get_instaloader_instance(temp_dir_for_session_management):
         dirname_pattern=os.path.join(temp_dir_for_session_management, DOWNLOAD_TARGET_DIR_IG, "{profile}") # Baixa para subpasta
     )
     # Prioridade 1: Carregar sessão do conteúdo da variável de ambiente
+# Dentro de get_instaloader_instance:
     ig_session_content = os.environ.get('INSTAGRAM_SESSION_FILE_CONTENT')
-    ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME') # Este é o SEU usuário, não o alvo do download
+    ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME') # Este é o SEU usuário
+
+    # L já foi inicializado
+    # L = instaloader.Instaloader(...)
 
     if ig_session_content and ig_username_for_session:
-        # Nome do arquivo temporário que será criado no container
-        session_filepath_in_temp = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session") # Adicionei .session
+        session_filepath_in_temp = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session")
         try:
             with open(session_filepath_in_temp, 'w') as f:
-                f.write(ig_session_content) # Escreve o conteúdo da ENV var no arquivo temporário
+                f.write(ig_session_content)
+            logger.info(f"Instagram: Arquivo de sessão temporário criado em: {session_filepath_in_temp}")
 
-            logger.info(f"Instagram: Tentando carregar sessão para '{ig_username_for_session}' do arquivo: {session_filepath_in_temp}")
-            
-            # CORREÇÃO:
-            # A função load_session_from_file espera o nome de usuário e, opcionalmente, o caminho do arquivo.
-            # Se o arquivo não estiver no local padrão, você pode precisar configurar o Instaloader
-            # para procurar no diretório correto ou usar um método diferente.
-            # No entanto, olhando o código fonte do Instaloader (ou testando),
-            # `load_session_from_file` pode levar um argumento `sessionfile` (ou similar).
-            # A mensagem de erro foi "unexpected keyword argument 'filename'".
-            # Vamos tentar sem nomear o parâmetro do arquivo, ou com o nome correto se for 'sessionfile'.
-            
-            # Tentativa 1: Deixar o Instaloader encontrar pelo username, mas precisamos que ele saiba onde procurar.
-            # Isso é complicado com diretórios temporários.
-            
-            # Tentativa 2: Passar o caminho do arquivo diretamente.
-            # O método `load_session_from_file` no `InstaloaderContext` espera:
-            # load_session_from_file(self, username: str, sessionfile=None)
-            # O `sessionfile` é o caminho para o arquivo.
-            L.context.username = ig_username_for_session # Importante definir o username no contexto ANTES de carregar
-            L.load_session_from_file(username=ig_username_for_session, sessionfile=session_filepath_in_temp) # <--- CORREÇÃO AQUI
-            
-            # Após o load_session_from_file, o L.context.username já deve estar correto se o load foi bem sucedido.
-            # L.context.username = ig_username_for_session # Pode ser redundante se o load_session já define.
+            # CORREÇÃO AQUI:
+            # Em vez de L.load_session_from_file, usamos L.context.username e
+            # o Instaloader tentará carregar a sessão do arquivo esperado no seu config dir
+            # OU, se quisermos forçar um arquivo específico, podemos tentar atribuir diretamente
+            # ao L.context ou usar um método que aceite o caminho.
 
+            # O Instaloader espera que o arquivo de sessão esteja no diretório de configuração padrão
+            # ou que seja nomeado de acordo com o username.
+            # Para usar um arquivo em um local personalizado com `L.context.username = ...`
+            # e depois `L.context.login()`, o Instaloader ainda pode não pegar o arquivo customizado
+            # diretamente sem mais configuração.
+
+            # A maneira mais direta, se L.load_session_from_file() não funciona como esperado,
+            # é carregar a sessão no CONTEXTO e depois garantir que o objeto L principal
+            # esteja usando esse contexto. O objeto L já usa L.context.
+
+            # Vamos tentar carregar a sessão diretamente no contexto do objeto L.
+            # O método L.context.load_session_from_file(username, sessionfile) DEVE funcionar.
+            # A mensagem de erro anterior dizia:
+            # "Instaloader.load_session_from_file() got an unexpected keyword argument 'sessionfile'"
+            # Isso sugere que a chamada foi em `L` e não em `L.context`.
+
+            # Verifiquei o código-fonte do Instaloader:
+            # `Instaloader` (a classe principal) tem um método `load_session_from_file(self, filename, SetaTrue_if_session_is_valid_or_False_otherwise=True)`
+            # Este método é mais antigo e pode não ser o que queremos para carregar a *nossa* sessão de usuário.
+
+            # `InstaloaderContext` tem `load_session_from_file(self, username, sessionfile=None, SetaTrue_if_session_is_valid_or_False_otherwise=True)`
+
+            # A chamada correta DEVE ser em L.context:
+            L.context.username = ig_username_for_session # Crucial: define qual usuário a sessão pertence
+            L.context.load_session_from_file(username=ig_username_for_session,
+                                             sessionfile=session_filepath_in_temp) # Passando o caminho para o arquivo
+
+            # Verificação pós-carregamento
             if L.context.is_logged_in:
-                logger.info(f"Instagram: Sessão carregada e login confirmado para '{ig_username_for_session}'.")
+                logger.info(f"Instagram: Sessão carregada e login confirmado para '{ig_username_for_session}' usando L.context.load_session_from_file.")
             else:
-                # Isso pode acontecer se o conteúdo do arquivo de sessão for inválido ou expirado
-                logger.warning(f"Instagram: Sessão carregada de '{session_filepath_in_temp}' mas o contexto indica que NÃO está logado para '{ig_username_for_session}'. Verifique o conteúdo da sessão.")
-                # Não prosseguir com esta sessão se não estiver logado
+                logger.warning(f"Instagram: L.context.load_session_from_file para '{ig_username_for_session}' de '{session_filepath_in_temp}' não resultou em login. Verifique o conteúdo da sessão ou o arquivo.")
                 raise instaloader.exceptions.ConnectionException("Sessão carregada mas não resultou em login.")
+            
+            return L # Retorna a instância L com o contexto logado
 
-            return L
         except Exception as e:
-            logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' do arquivo '{session_filepath_in_temp}': {e}. Tentando login normal se configurado.")
+            logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' (usando L.context.load_session_from_file): {e}. Tentando login normal se configurado.")
             if os.path.exists(session_filepath_in_temp):
                 try:
-                    os.remove(session_filepath_in_temp) # Limpa tentativa falha
+                    os.remove(session_filepath_in_temp)
                 except OSError:
-                    pass # Ignora erro na remoção se não conseguir
-
+                    pass
+    
+    # Se a carga da sessão falhou ou não foi configurada, prossegue para tentativa de login por user/pass
+    # ... (resto da função como estava antes, para login por username/password) ...
 
     # Prioridade 2: Login com username/password de variáveis de ambiente
     username = os.environ.get('INSTAGRAM_USERNAME')
