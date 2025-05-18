@@ -100,26 +100,11 @@ def create_zip_from_files(file_paths, zip_filename_base, base_dir_for_zip):
 # --- Funções de Download do Instagram ---
 
 def get_instaloader_instance(temp_dir_for_session_management):
-    """Inicializa e tenta logar o Instaloader."""
-    L = instaloader.Instaloader(
-        download_pictures=True,
-        download_videos=True,
-        download_video_thumbnails=False, # Geralmente não queremos thumbs separados
-        save_metadata=False,             # Não precisamos dos arquivos JSON/TXT de metadados
-        compress_json=False,
-        post_metadata_txt_pattern="",    # Evita arquivos .txt
-        storyitem_metadata_txt_pattern="",
-        dirname_pattern=os.path.join(temp_dir_for_session_management, DOWNLOAD_TARGET_DIR_IG, "{profile}") # Baixa para subpasta
-    )
-    # Prioridade 1: Carregar sessão do conteúdo da variável de ambiente
-# Dentro de get_instaloader_instance:
+    L = instaloader.Instaloader(...)
     ig_session_content = os.environ.get('INSTAGRAM_SESSION_FILE_CONTENT')
-    ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME') # Este é o SEU usuário
+    ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME')
 
-    # L já foi inicializado
-    # L = instaloader.Instaloader(...)
-
-    # Dentro de get_instaloader_instance
+    # Prioridade 1: Carregar sessão
     if ig_session_content and ig_username_for_session:
         session_filepath = os.path.join(temp_dir_for_session_management, f"{ig_username_for_session}.session")
         try:
@@ -127,39 +112,38 @@ def get_instaloader_instance(temp_dir_for_session_management):
                 f.write(ig_session_content)
             
             logger.info(f"Instagram: Tentando carregar sessão para '{ig_username_for_session}' do arquivo '{session_filepath}'.")
-            L.context.username = ig_username_for_session # Definir ANTES de carregar
-            L.context.load_session_from_file(username=ig_username_for_session, filename=session_filepath) # Correto
-    
+            L.context.username = ig_username_for_session
+            L.context.load_session_from_file(username=ig_username_for_session, filename=session_filepath)
+
             if L.context.is_logged_in and L.context.username == ig_username_for_session:
                 logger.info(f"Instagram: Sessão carregada com SUCESSO para '{L.context.username}' a partir de var de ambiente.")
-                return L
+                return L # <--- Este é o return que deve funcionar
             else:
-                # Se não logou ou o username não bate, a sessão não foi válida.
-                logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente (is_logged_in: {L.context.is_logged_in}, context.username: {L.context.username}, expected_username: {ig_username_for_session}).")
-                # Não retorna L, vai tentar login normal ou anônimo.
-    
-        except Exception as e:
-            logger.warning(f"Instagram: Falha ao carregar sessão de ENV para '{ig_username_for_session}' (Exceção: {type(e).__name__} - {e}). Tentando login normal se configurado.")
-            if os.path.exists(session_filepath): os.remove(session_filepath)
-        
-    # Se a carga da sessão falhou ou não foi configurada, prossegue para tentativa de login por user/pass
-    # ... (resto da função como estava antes, para login por username/password) ...
+                logger.warning(f"Instagram: Sessão carregada de ENV mas o contexto indica que não está logado corretamente...")
+                # Continua para a próxima tentativa se a sessão não for válida
 
-    # Prioridade 2: Login com username/password de variáveis de ambiente
-    username = os.environ.get('INSTAGRAM_USERNAME')
+        except Exception as e:
+            logger.warning(f"Instagram: Falha ao carregar sessão de ENV... ({e}).")
+            if os.path.exists(session_filepath): os.remove(session_filepath)
+        # Se chegou aqui, a tentativa de sessão falhou ou não foi válida, então continua.
+
+    # Prioridade 2: Login com username/password
+    username = os.environ.get('INSTAGRAM_USERNAME') # Poderia ser o mesmo ig_username_for_session
     password = os.environ.get('INSTAGRAM_PASSWORD')
-    if username and password:
+    if username and password: # Só tenta se a sessão não funcionou E tiver password
+        logger.info(f"Instagram: Tentando login com username/password para '{username}'.") # Log adicionado
         try:
             L.login(username, password)
             logger.info(f"Instagram: Login bem-sucedido como '{username}'.")
-            # Não vamos salvar a sessão de volta para env vars, é complexo e pode não ser desejado.
-            # O usuário pode gerar um session file localmente e colocar em INSTAGRAM_SESSION_FILE_CONTENT.
-            return L
+            return L # <--- Este é o return para login bem-sucedido
         except Exception as e:
             logger.warning(f"Instagram: Login falhou para '{username}': {e}. Prosseguindo anonimamente se possível.")
-    else:
-        logger.info("Instagram: Nenhuma credencial (sessão ou login) fornecida. Prosseguindo anonimamente.")
-    return L
+            # Continua para o retorno anônimo.
+    else: # Se não tentou login com senha (ou falhou e não há mais nada)
+        # Esta mensagem pode aparecer se a sessão falhou e não há senha, ou se nem sessão nem senha foram fornecidas.
+        logger.info("Instagram: Nenhuma credencial de sessão válida ou login/password fornecido. Prosseguindo anonimamente se aplicável.")
+
+    return L # <--- Este é o return final, que retorna L (logado ou anônimo)
 
 def _download_instagram_items(L, items_iterator, target_profile_name, temp_download_dir):
     """Função genérica para baixar itens de um iterador do Instaloader."""
