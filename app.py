@@ -103,8 +103,7 @@ def create_zip_from_files(file_paths, zip_filename_base, base_dir_for_zip):
 
 import base64 # Adicionar no topo do app.py
 
-def get_instaloader_instance(temp_dir_for_session_management):
-    """Inicializa e tenta logar o Instaloader."""
+def get_instaloader_instance(temp_dir_for_session_management): # temp_dir_for_session_management não será mais usado para dirname_pattern aqui
     L = instaloader.Instaloader(
         download_pictures=True,
         download_videos=True,
@@ -113,8 +112,10 @@ def get_instaloader_instance(temp_dir_for_session_management):
         compress_json=False,
         post_metadata_txt_pattern="",
         storyitem_metadata_txt_pattern="",
-        dirname_pattern=os.path.join(temp_dir_for_session_management, DOWNLOAD_TARGET_DIR_IG, "{profile}")
+        # Removido dirname_pattern daqui ou simplificado:
+        # dirname_pattern="{profile}" # Ou deixe o padrão do Instaloader (CWD/{profile})
     )
+
     
     ig_session_base64 = os.environ.get('INSTAGRAM_SESSION_BASE64')
     ig_username_for_session = os.environ.get('INSTAGRAM_USERNAME')
@@ -253,53 +254,71 @@ def _download_instagram_items(L, items_iterator, target_profile_name, temp_downl
     return downloaded_files
 
 
-def download_instagram_content(L, url_or_username, temp_dir, download_format='video', ig_action=None):
+def download_instagram_content(L, url_or_username, temp_dir_req, download_format='video', ig_action=None):
     """Função principal para lidar com downloads do Instagram."""
-    downloaded_files = []
-    output_filename_base = "instagram_media" # Base para o nome do ZIP
+    processed_files_for_output = []
+    output_filename_base = "instagram_media"
+    
+    # Diretório onde o Instaloader vai salvar os arquivos desta requisição específica
+    # Ex: /tmp/downloader_xyz/instagram_downloads/juuh._.038
+    # O nome da subpasta (target_profile_for_subdir) será determinado abaixo.
+    target_profile_for_subdir = None 
 
     try:
-        # Determinar a ação e o alvo (username ou shortcode)
         profile_username = None
         post_shortcode = None
-        is_story_url = False
-        is_highlight_url = False # Não há URL direta para todos os highlights, é por usuário
-
-        if ig_action: # Ação explícita (geralmente com username)
-            profile_username = url_or_username # Assumimos que url_or_username é o username aqui
+        
+        # Determinar alvo e ação (como antes)
+        if ig_action:
+            profile_username = url_or_username
+            target_profile_for_subdir = profile_username
             output_filename_base = f"{profile_username}_{ig_action}"
-        else: # Tentar inferir da URL
-            username_match = re.search(r"instagram\.com/([^/]+)/?(?:stories|saved|tagged|feed)?/?$", url_or_username)
+        else: # Inferir da URL
+            # ... (sua lógica de regex para extrair profile_username, post_shortcode, story_id, highlight_id)
+            # ... Vou assumir que esta parte preenche profile_username ou post_shortcode
+            # ... e define ig_action e output_filename_base corretamente.
+            # Exemplo simplificado:
             post_match = re.search(r"instagram\.com/(?:p|reel|tv)/([^/]+)", url_or_username)
-            story_match = re.search(r"instagram\.com/stories/([^/]+)/(\d+)", url_or_username) # Story específico
-            highlight_match = re.search(r"instagram\.com/stories/highlights/(\d+)", url_or_username) # Highlight específico (álbum)
+            story_url_match = re.search(r"instagram\.com/stories/([^/]+)/(\d+)", url_or_username)
+            profile_url_match = re.search(r"instagram\.com/([^/]+)", url_or_username) # Genérico
 
-            if story_match:
-                profile_username = story_match.group(1)
-                story_id = story_match.group(2)
-                ig_action = 'story_item'
-                output_filename_base = f"{profile_username}_story_{story_id}"
-            elif highlight_match:
-                highlight_id = highlight_match.group(1)
-                ig_action = 'highlight_album'
-                output_filename_base = f"highlight_{highlight_id}"
-                # Precisaremos do Profile para obter o username do dono do highlight se não estiver na URL
-            elif post_match:
+            if post_match:
                 post_shortcode = post_match.group(1)
-                ig_action = 'post'
-                output_filename_base = f"post_{post_shortcode}"
-            elif username_match: # URL de perfil genérica, ex: instagram.com/username/
-                profile_username = username_match.group(1)
-                # Se nenhuma ação específica (como story) foi detectada, e é URL de perfil,
-                # o usuário precisa especificar ig_action, ou podemos ter um default (ex: ultimos posts)
-                # Por enquanto, se for URL de perfil sem ig_action, não fazemos nada específico.
-                if not ig_action: # Precisa de uma ação explícita para URL de perfil
-                    raise ValueError("Para URL de perfil do Instagram, por favor, especifique 'ig_action' (profile_pic, stories, highlights).")
-                output_filename_base = f"{profile_username}_{ig_action or 'content'}"
-            else:
-                raise ValueError("URL do Instagram não reconhecida ou 'ig_action' ausente para nome de usuário.")
+                ig_action = 'post' # ou reel, igtv
+                # Precisamos do owner para o nome do subdiretório
+                temp_post_for_owner = instaloader.Post.from_shortcode(L.context, post_shortcode)
+                target_profile_for_subdir = temp_post_for_owner.owner_username
+                output_filename_base = f"{target_profile_for_subdir}_post_{post_shortcode}"
+            elif story_url_match:
+                profile_username = story_url_match.group(1)
+                # story_id = story_url_match.group(2) # Não usado diretamente no download de todos os stories
+                ig_action = 'stories' # Ou um 'story_item' se você implementar
+                target_profile_for_subdir = profile_username
+                output_filename_base = f"{profile_username}_stories"
+            elif profile_url_match and ig_action: # Ex: username=user&ig_action=stories
+                 profile_username = profile_url_match.group(1)
+                 target_profile_for_subdir = profile_username
+                 output_filename_base = f"{profile_username}_{ig_action}"
+            elif profile_url_match and not ig_action: # URL de perfil sem ação específica
+                 raise ValueError("Para URL de perfil do Instagram, por favor, especifique 'ig_action' (profile_pic, stories, highlights).")
+            else: # Se url_or_username é apenas um username (sem URL) e ig_action está setado
+                 if not ig_action:
+                     raise ValueError("Nome de usuário fornecido sem 'ig_action' ou URL inválida.")
+                 profile_username = url_or_username # url_or_username é o username
+                 target_profile_for_subdir = profile_username
+                 output_filename_base = f"{profile_username}_{ig_action}"
 
-        # Obter o objeto Profile se tivermos username
+
+        if not target_profile_for_subdir:
+            raise ValueError("Não foi possível determinar o alvo para o subdiretório de download do Instagram.")
+
+        # Configurar o caminho de download absoluto para o Instaloader
+        absolute_download_path_for_L = os.path.join(temp_dir_req, DOWNLOAD_TARGET_DIR_IG, target_profile_for_subdir)
+        os.makedirs(absolute_download_path_for_L, exist_ok=True)
+        L.dirname_pattern = absolute_download_path_for_L
+        logger.info(f"Instagram: Configurado para baixar em '{absolute_download_path_for_L}'")
+
+        # Obter o objeto Profile se tivermos profile_username
         profile = None
         if profile_username:
             try:
@@ -307,147 +326,115 @@ def download_instagram_content(L, url_or_username, temp_dir, download_format='vi
             except instaloader.exceptions.ProfileNotExistsException:
                 raise Exception(f"Perfil do Instagram '{profile_username}' não encontrado.")
 
-        # Executar a ação de download
-        items_to_download_iter = []
-
+        # --- Executar a Ação de Download REAL ---
         if ig_action == 'profile_pic' and profile:
-            pic_url = profile.profile_pic_url
-            # L.download_pic já espera um diretório via dirname_pattern
-            # Ele baixa para CWD / dirname_pattern / filename
-            # Vamos controlar o nome do arquivo.
-            filename = os.path.join(temp_dir, DOWNLOAD_TARGET_DIR_IG, profile_username, f"{profile_username}_profile_pic.jpg")
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-            original_cwd = os.getcwd()
-            os.chdir(temp_dir) # Para L.download_pic funcionar dentro do temp_dir
-            try:
-                L.download_pic(filename=os.path.join(DOWNLOAD_TARGET_DIR_IG, profile_username, f"{profile_username}_profile_pic.jpg"),
-                               url=pic_url, mtime=profile. στιλ) # στιλ é um placeholder para mtime
-                downloaded_files.append(filename)
-            finally:
-                os.chdir(original_cwd)
-
+            L.download_profilepic(profile) # Baixa para dirname_pattern / {profile_pic_filename}
+            logger.info(f"Baixando foto de perfil para {profile.username}")
         elif ig_action == 'stories' and profile:
-            items_to_download_iter = L.get_stories(userids=[profile.userid])
-        elif ig_action == 'highlights' and profile:
-            items_to_download_iter = L.get_highlights(user=profile)
-        elif ig_action == 'story_item' and profile: # Story específico por ID
-            story_media_id_to_find = int(story_id) # Da URL
-            found_item = None
+            logger.info(f"Baixando stories para {profile.username}")
             for story in L.get_stories(userids=[profile.userid]):
                 for item in story.get_items():
-                    if item.mediaid == story_media_id_to_find:
-                        found_item = item
-                        break
-                if found_item: break
-            if found_item: items_to_download_iter = [found_item] # Trata como iterável de um item
-            else: raise Exception(f"Story específico com ID {story_id} não encontrado para {profile_username}.")
-        elif ig_action == 'highlight_album' and highlight_id: # Destaque específico
-            # Precisamos encontrar o StoryItem do highlight. Instaloader não tem get_highlight_by_id direto.
-            # Teríamos que iterar pelos highlights do usuário se soubéssemos o usuário, ou ter o objeto Highlight
-            # Esta parte é complexa sem o nome de usuário. Vamos simplificar:
-            # Se a URL for de um highlight específico, o Instaloader geralmente consegue lidar com o download
-            # do "post" associado a esse highlight_id, que é um StoryItem.
-            # Precisaremos testar como o Instaloader trata URLs de highlights diretamente.
-            # Por ora, vamos assumir que se a URL é de um highlight, L.download_post ou similar pode funcionar.
-            # Esta é uma área que pode precisar de mais pesquisa com Instaloader.
-            # Para simplificar, o download de "álbuns de destaque" individuais é melhor feito
-            # baixando TODOS os destaques e o usuário escolhe, ou se o usuário fornece o nome do destaque.
-            # Como temos o ID do highlight, podemos tentar construir um objeto Story (complexo) ou
-            # focar no download de todos os highlights do usuário se o username for conhecido.
-            # **Simplificação:** Se for URL de highlight, vamos tratá-la como um "post" especial.
-            # O Instaloader pode conseguir extrair o StoryItem.
-            logger.warning("Download de highlight específico por URL direta é experimental.")
-            # Tenta carregar o item do highlight como um "Post" (que pode ser um StoryItem)
-            # O "shortcode" de um highlight é seu ID.
-            try:
-                post_obj = instaloader.Post.from_shortcode(L.context, highlight_id) # Destaques são 'posts' especiais
-                items_to_download_iter = [post_obj]
-            except Exception as e_hl:
-                 raise Exception(f"Não foi possível carregar o item do highlight ID {highlight_id}: {e_hl}. Tente baixar todos os highlights do usuário.")
-
+                    L.download_storyitem(item, target=profile.username) # target aqui é para o {profile} no filename_pattern
+        elif ig_action == 'highlights' and profile:
+            logger.info(f"Baixando destaques para {profile.username}")
+            for highlight in L.get_highlights(user=profile):
+                logger.info(f"  Baixando itens do destaque: {highlight.title}")
+                for item in highlight.get_items():
+                    L.download_storyitem(item, target=profile.username)
         elif ig_action == 'post' and post_shortcode:
+            logger.info(f"Baixando post/reel/IGTV: {post_shortcode}")
             post = instaloader.Post.from_shortcode(L.context, post_shortcode)
-            if post.typename == 'GraphSidecar': # Carrossel
-                items_to_download_iter = post.get_sidecar_nodes()
-            else: # Post único (imagem ou vídeo)
-                items_to_download_iter = [post]
+            L.download_post(post, target=post.owner_username) # Passa o dono para o filename_pattern
+        else:
+            raise ValueError(f"Ação do Instagram '{ig_action}' não suportada ou perfil/post não encontrado.")
+
+        # --- Coletar Arquivos Baixados ---
+        # Os arquivos estarão em `absolute_download_path_for_L`
+        downloaded_raw_files = []
+        if os.path.exists(absolute_download_path_for_L):
+            for f_name in os.listdir(absolute_download_path_for_L):
+                if f_name.endswith((".jpg", ".jpeg", ".png", ".mp4", ".mov")):
+                    downloaded_raw_files.append(os.path.join(absolute_download_path_for_L, f_name))
         
-        # Se temos um iterador de itens (stories, highlights, carrossel)
-        if items_to_download_iter and ig_action != 'profile_pic': # profile_pic já foi baixado
-            # O target_profile_name para _download_instagram_items é para a estrutura de pastas.
-            # Se for um post, o "profile" é o dono do post. Se for stories, é o username.
-            # Vamos usar o profile_username se disponível, ou o dono do primeiro item.
-            name_for_subdir = profile_username
-            if not name_for_subdir and post_shortcode: # Para posts, pegar o dono
-                # Re-obter o post para pegar o owner_username se não tivermos profile_username
-                post_for_owner = instaloader.Post.from_shortcode(L.context, post_shortcode)
-                name_for_subdir = post_for_owner.owner_username
+        if not downloaded_raw_files:
+            # Esta verificação agora é mais precisa. Se nada foi baixado AQUI, então é um problema.
+            # Pode ser que o usuário não tenha stories, ou a conta seja privada e não seguida, etc.
+            # É importante distinguir entre "erro de código" e "sem conteúdo para baixar".
+            logger.warning(f"Instagram: Nenhum arquivo encontrado em '{absolute_download_path_for_L}' após tentativa de download para '{target_profile_for_subdir}', ação '{ig_action}'. Verifique se há conteúdo disponível e se a conta logada tem permissão.")
+            # Não levantar exceção aqui ainda, pode ser que não haja conteúdo.
+            # A exceção "Nenhum arquivo do Instagram foi baixado." será levantada depois se a lista final estiver vazia.
 
-            if not name_for_subdir: name_for_subdir = "instagram_media" # Fallback
-
-            downloaded_raw_files = _download_instagram_items(L, items_to_download_iter, name_for_subdir, temp_dir)
-            downloaded_files.extend(downloaded_raw_files)
-
-        if not downloaded_files:
-            raise Exception("Nenhum arquivo do Instagram foi baixado.")
-
-        # Pós-processamento: extrair MP3 se necessário
-        final_processed_files = []
+        # --- Pós-processamento: extrair MP3 se necessário ---
+        processed_files_for_output = []
         if download_format == 'mp3':
-            for media_file_path in downloaded_files:
+            if not downloaded_raw_files: # Se não baixou nada, não tem o que converter
+                 raise Exception(f"Nenhum vídeo encontrado para converter para MP3 para '{target_profile_for_subdir}'.")
+            for media_file_path in downloaded_raw_files:
                 if media_file_path.lower().endswith((".mp4", ".mov")):
                     logger.info(f"Instagram: Extraindo áudio MP3 de: {media_file_path}")
-                    audio_path = extract_audio_from_video_yt_dlp(media_file_path, os.path.dirname(media_file_path), 'mp3')
+                    # O diretório de saída para o MP3 deve ser o mesmo `absolute_download_path_for_L`
+                    # ou diretamente no `temp_dir_req` para simplificar a coleta para o ZIP.
+                    # Vamos colocar no `temp_dir_req` para evitar aninhamento excessivo no ZIP.
+                    audio_path = extract_audio_from_video_yt_dlp(media_file_path, temp_dir_req, 'mp3')
                     if audio_path and os.path.exists(audio_path):
-                        final_processed_files.append(audio_path)
-                        try: # Tenta remover o vídeo original
+                        processed_files_for_output.append(audio_path)
+                        try:
                             if media_file_path != audio_path : os.remove(media_file_path)
                         except OSError as e_rem: logger.warning(f"Falha ao remover vídeo original {media_file_path}: {e_rem}")
                     else:
-                        logger.warning(f"Instagram: Falha ao extrair áudio de {media_file_path}. O arquivo original não será incluído.")
-                # Não faz sentido processar imagens para MP3
-            if not final_processed_files:
-                raise Exception("Nenhum áudio MP3 pôde ser extraído dos vídeos do Instagram baixados.")
+                        logger.warning(f"Instagram: Falha ao extrair áudio de {media_file_path}.")
+            if not processed_files_for_output:
+                raise Exception("Nenhum áudio MP3 pôde ser extraído dos vídeos do Instagram.")
         else: # Formato de vídeo/imagem padrão
-            final_processed_files.extend(downloaded_files)
+            processed_files_for_output.extend(downloaded_raw_files)
 
-        if not final_processed_files:
-            raise Exception("Instagram: Nenhum arquivo final processado.")
+        if not processed_files_for_output:
+            # Esta exceção agora é mais significativa, pois significa que ou não havia conteúdo,
+            # ou a conversão para MP3 falhou para todos os itens, ou a filtragem falhou.
+            raise Exception("Nenhum arquivo do Instagram resultante após processamento (verifique se há conteúdo ou se a conversão para MP3 foi bem-sucedida).")
 
-        # Se múltiplos arquivos, criar ZIP. Senão, retornar o único arquivo.
-        if len(final_processed_files) > 1:
-            zip_path = create_zip_from_files(final_processed_files, output_filename_base, temp_dir)
+        # --- Criar ZIP se múltiplos arquivos ---
+        if len(processed_files_for_output) > 1:
+            zip_path = create_zip_from_files(processed_files_for_output, output_filename_base, temp_dir_req)
             if not zip_path:
                 raise Exception("Falha ao criar arquivo ZIP para múltiplos itens do Instagram.")
-            # Limpar arquivos individuais após zippar
-            for f_path in final_processed_files:
+            # Limpar arquivos individuais após zippar (eles estão em temp_dir_req ou absolute_download_path_for_L)
+            for f_path in processed_files_for_output:
                 if os.path.exists(f_path): os.remove(f_path)
-            # Limpar o diretório de download do IG se estiver vazio
-            ig_dl_main_path = os.path.join(temp_dir, DOWNLOAD_TARGET_DIR_IG)
-            if os.path.exists(ig_dl_main_path) and not os.listdir(ig_dl_main_path):
-                shutil.rmtree(ig_dl_main_path, ignore_errors=True)
-            elif os.path.exists(ig_dl_main_path): # Se ainda houver subpastas de profile
-                shutil.rmtree(ig_dl_main_path, ignore_errors=True)
-
-
-            return [zip_path] # Retorna lista com o caminho do ZIP
-        elif final_processed_files:
-            return final_processed_files # Lista com um único arquivo
-        else:
-            raise Exception("Instagram: Nenhum arquivo resultante após processamento.")
+            # Remover o diretório de download do Instaloader (que está dentro de temp_dir_req)
+            ig_media_root_in_temp = os.path.join(temp_dir_req, DOWNLOAD_TARGET_DIR_IG)
+            if os.path.exists(ig_media_root_in_temp):
+                shutil.rmtree(ig_media_root_in_temp, ignore_errors=True)
+            return [zip_path]
+        elif processed_files_for_output:
+            # Se for um único arquivo, ele pode estar em temp_dir_req (se for mp3 convertido)
+            # ou em absolute_download_path_for_L (se for o original).
+            # Para consistência, vamos mover para temp_dir_req se não estiver lá.
+            single_file = processed_files_for_output[0]
+            if os.path.dirname(single_file) != temp_dir_req:
+                moved_single_file = os.path.join(temp_dir_req, os.path.basename(single_file))
+                shutil.move(single_file, moved_single_file)
+                # Limpar o diretório de download do Instaloader
+                ig_media_root_in_temp = os.path.join(temp_dir_req, DOWNLOAD_TARGET_DIR_IG)
+                if os.path.exists(ig_media_root_in_temp):
+                    shutil.rmtree(ig_media_root_in_temp, ignore_errors=True)
+                return [moved_single_file]
+            return [single_file]
+        else: # Esta branch não deveria ser atingida se a exceção anterior foi levantada.
+            raise Exception("Instagram: Nenhum arquivo final para retornar.")
 
     except instaloader.exceptions.ProfileNotExistsException as e:
         raise Exception(f"Instagram: Perfil '{profile_username or url_or_username}' não encontrado: {e}")
-    except instaloader.exceptions.ConnectionException as e:
-        if "Login required" in str(e) or "Redirected to login page" in str(e) or "401 Unauthorized" in str(e) or "checkpoint_required" in str(e):
-            raise Exception(f"Instagram: Acesso negado ou requer login/checkpoint. Tente configurar credenciais/sessão via variáveis de ambiente. Erro: {e}")
-        raise Exception(f"Instagram: Falha de conexão: {e}")
+    # ... (resto dos seus blocos except como antes) ...
     except ValueError as e: # Nossos próprios ValueErrors
         raise e
     except Exception as e:
         logger.exception(f"Erro inesperado no download do Instagram para '{url_or_username}'")
-        raise Exception(f"Instagram: Erro inesperado: {e}")
+        # A exceção original (e) pode ser a de "Nenhum arquivo..."
+        # Precisamos ter cuidado para não mascarar a causa raiz.
+        if "Nenhum arquivo do Instagram resultante" in str(e) or "Nenhum vídeo encontrado para converter" in str(e):
+             raise e # Re-levanta a exceção mais específica
+        raise Exception(f"Instagram: Erro inesperado durante o processamento: {e}")
 
 
 # --- Funções de Download yt-dlp (TikTok, YouTube) ---
