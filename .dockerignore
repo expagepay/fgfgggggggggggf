@@ -9,3 +9,4 @@ venv/
 .vscode/
 tmp_downloads/ # Se você criar localmente
 *.log
+testes

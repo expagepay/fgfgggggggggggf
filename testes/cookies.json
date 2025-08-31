@@ -1,0 +1,148 @@
+[
+  {
+    "name": "PREF",
+    "value": "tz=America.Sao_Paulo",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1791215618.243959,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-3PAPISID",
+    "value": "-e-l2Vm4v1IoTVJR/A45exnIVGaH-XpuBM",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1790813605,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-3PSID",
+    "value": "g.a0000gi5EZi-I9cyi8YsfmeoHTf1Yr-so4j-PitDMmWBB_IyyyL9XmDe7nhZOZ7jsYwQGtuofwACgYKAXYSARcSFQHGX2Mi84ZN2DLDHAI6bFs96UWUfxoVAUF8yKoYMZd-pXp9HjzHNaLAOnHf0076",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1790813605,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-1PSIDTS",
+    "value": "sidts-CjIB5H03P8_GAYYqgpeSYsGz1rfnJyrDTEzdJqmsemic_ViOnsT6M9f1ejO4K_rvGqRKthAA",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1788185761,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-3PSIDTS",
+    "value": "sidts-CjIB5H03P8_GAYYqgpeSYsGz1rfnJyrDTEzdJqmsemic_ViOnsT6M9f1ejO4K_rvGqRKthAA",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1788185761,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-3PSIDCC",
+    "value": "AKEyXzURyR0RvPX69SQouLOFjo08qVwVNvRsIvfJZIFXcQF6sSK1R5K_Um3pDJsQs4MB7EwobeA",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1788185771,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "VISITOR_INFO1_LIVE",
+    "value": "6Fd2HfFsJxs",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1772201761,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "VISITOR_PRIVACY_METADATA",
+    "value": "CgJCUhIEGgAgJw%3D%3D",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1772201761,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "__Secure-ROLLOUT_TOKEN",
+    "value": "CJyn2bPXud325wEQjem8gcGPiwMYp4qZm-y0jwM%3D",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1772188312,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "YSC",
+    "value": "Qbrmfr2CioQ",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None",
+    "partitionKey": "https://youtube.com",
+    "_crHasCrossSiteAncestor": false
+  },
+  {
+    "name": "VISITOR_INFO1_LIVE",
+    "value": "6Fd2HfFsJxs",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1772207618.694368,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None",
+    "partitionKey": "https://youtube.com",
+    "_crHasCrossSiteAncestor": false
+  },
+  {
+    "name": "VISITOR_PRIVACY_METADATA",
+    "value": "CgJCUhIEGgAgJw%3D%3D",
+    "domain": ".youtube.com",
+    "path": "/",
+    "expires": 1772207618.694511,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None",
+    "partitionKey": "https://youtube.com",
+    "_crHasCrossSiteAncestor": false
+  },
+  {
+    "name": "NID",
+    "value": "525=WfhpyzYDiBWY6oTEBss2nfWkW2VlJLlHCdwj-nRqkocIWBkUMW836fXaxGnUVS58pjYW8uvi6dbM05pu6uS3YtkVOdrpe9eNlqD8PXYbpF6l2XtLbL2BpjWNJJKWlPgZ8kG8jHN1ZeU-3noENNfpx7GImRpbc9-RPBr3PJWKWpVIf8KJIk2wpGdSUD07p6NR",
+    "domain": ".google.com",
+    "path": "/",
+    "expires": 1772466818.283478,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "NID",
+    "value": "525=P5wVRIsok9yKUubkGz6fc010IGU6EJQNAZRWdt-NTsQGi7BBsu6THie0jXhVDt17FCR_caFA58Wu08HI7RUH6UThFxdqs85sySxR5NsicpiXD3Kku2txAa-Gx8ZoJRVShOGys3_v58ZDLIqdZ3W6pyXeHynwbJwXSMK_Gab-tGpUcd-JshYN95QPRM84lt2BBw",
+    "domain": ".google.com.br",
+    "path": "/",
+    "expires": 1772466818.401899,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  }
+]
